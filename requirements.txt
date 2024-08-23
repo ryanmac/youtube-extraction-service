@@ -1,0 +1,16 @@
+python-dotenv==1.0.1
+requests==2.32.3
+pinecone-client==5.0.1
+flake8==7.1.1
+yt-channel-scraper==0.1.1
+fastapi==0.112.1
+celery==5.4.0
+uvicorn==0.30.6
+redis==5.0.8
+tiktoken==0.7.0
+pydantic==2.8.2
+pydantic-settings==2.4.0
+tenacity==9.0.0
+openai==1.40.6
+pytest==8.3.2
+gunicorn==20.1.0
