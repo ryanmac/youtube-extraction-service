@@ -30,7 +30,6 @@ app = FastAPI(title=settings.PROJECT_NAME)
 
 app.add_middleware(
     CORSMiddleware,
-    # allow_origins=["*"],
     allow_origins=["http://localhost", "https://channel-chat-pi.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
