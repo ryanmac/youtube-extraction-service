@@ -11,6 +11,10 @@ This service efficiently processes YouTube channel transcripts, stores them in P
 5. Pinecone vector database for fast and scalable similarity search.
 6. API endpoints for job submission, status checking, and retrieving relevant transcript chunks.
 7. Comprehensive error handling and logging for improved reliability.
+8. API endpoints for job submission, status checking, retrieving relevant transcript chunks, and channel information.
+9. Channel metadata caching for improved performance.
+10. Flexible handling of various YouTube channel URL formats.
+
 
 ## Setup
 
@@ -29,12 +33,14 @@ This service efficiently processes YouTube channel transcripts, stores them in P
    PINECONE_ENVIRONMENT=your_pinecone_environment
    PINECONE_INDEX_NAME=your_pinecone_index_name
    OPENAI_API_KEY=your_openai_api_key
+   YOUTUBE_API_KEY=your_youtube_api_key
    MAX_VIDEOS_PER_CHANNEL=5
    CHUNK_SIZE=200
    ```
 
 3. Install dependencies:
    ```bash
+   source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
@@ -45,11 +51,13 @@ This service efficiently processes YouTube channel transcripts, stores them in P
 
 5. Start Celery worker:
    ```bash
+   source .venv/bin/activate
    celery -A celery_worker.celery_app worker --loglevel=info
    ```
 
 6. Run the FastAPI application:
    ```bash
+   source .venv/bin/activate
    uvicorn app.main:app --reload
    ```
 
@@ -58,6 +66,147 @@ This service efficiently processes YouTube channel transcripts, stores them in P
 - POST `/process_channel`: Submit a channel for processing
 - GET `/job_status/{job_id}`: Check the status of a processing job
 - GET `/relevant_chunks`: Retrieve relevant transcript chunks for a given query
+- GET `/channel_info`: Get channel information and metadata
+- POST `/refresh_channel_metadata`: Refresh channel metadata
+
+## Testing
+
+```bash
+source .venv/bin/activate
+pytest tests/
+pytest tests/e2e/test_channel_processing.py
+```
+
+## Usage Examples
+
+1. **Get channel information:**
+   ```bash
+   curl -X GET "http://localhost:8000/channel_info?channel_url=https://www.youtube.com/@drwaku"
+   ```
+   **Returns:**
+   ```json
+   {
+     "channel_id": "UCZf5IX90oe5gdPppMXGImwg",
+     "unique_video_count": 51,
+     "total_embeddings": 1734,
+     "metadata": {
+       "snippet": {
+         "title": "Dr Waku",
+         "description": "...",
+         "customUrl": "@drwaku",
+         "publishedAt": "2023-04-05T21:05:39.174844Z",
+         "thumbnails": {
+           "default": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 88, "height": 88 },
+           "medium": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 240, "height": 240 },
+           "high": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 800, "height": 800 }
+         },
+         "country": "CA"
+       },
+       "statistics": {
+         "viewCount": "743515",
+         "subscriberCount": "15800",
+         "hiddenSubscriberCount": false,
+         "videoCount": "128"
+       },
+       "topicDetails": {
+         "topicCategories": [
+           "https://en.wikipedia.org/wiki/Technology",
+           "https://en.wikipedia.org/wiki/Health",
+           "https://en.wikipedia.org/wiki/Knowledge",
+           "https://en.wikipedia.org/wiki/Lifestyle_(sociology)"
+         ]
+       },
+       "status": {
+         "privacyStatus": "public",
+         "isLinked": true,
+         "madeForKids": false
+       },
+       "brandingSettings": {
+         "channel": {
+           "title": "Dr Waku",
+           "description": "...",
+           "country": "CA"
+         },
+         "image": {
+           "bannerExternalUrl": "https://yt3.googleusercontent.com/TfX10Zv3y9..."
+         }
+       }
+     }
+   }
+   ```
+
+2. **Refresh channel metadata:**
+   ```bash
+   curl -X POST "http://localhost:8000/refresh_channel_metadata?channel_url=https://www.youtube.com/@drwaku"
+   ```
+   **Returns:**
+   ```json
+   {
+     "message": "Channel metadata refreshed successfully",
+     "metadata": {
+       "snippet": {
+         "title": "Dr Waku",
+         "description": "...",
+         "customUrl": "@drwaku",
+         "publishedAt": "2023-04-05T21:05:39.174844Z",
+         "thumbnails": {
+           "default": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 88, "height": 88 },
+           "medium": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 240, "height": 240 },
+           "high": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 800, "height": 800 }
+         },
+         "country": "CA"
+       },
+       "statistics": {
+         "viewCount": "743515",
+         "subscriberCount": "15800",
+         "hiddenSubscriberCount": false,
+         "videoCount": "128"
+       },
+       "status": {
+         "privacyStatus": "public",
+         "isLinked": true,
+         "madeForKids": false
+       },
+       "brandingSettings": {
+         "channel": {
+           "title": "Dr Waku",
+           "description": "...",
+           "country": "CA"
+         },
+         "image": {
+           "bannerExternalUrl": "https://yt3.googleusercontent.com/TfX10Zv3y9..."
+         }
+       }
+     }
+   }
+   ```
+
+3. **Process a channel:**
+   ```bash
+   curl -X POST "http://localhost:8000/process_channel" -H "Content-Type: application/json" -d '{"channel_url": "https://www.youtube.com/@drwaku"}'
+   ```
+   **Returns:**
+   ```json
+   { "job_id": "f02af531-3854-48af-ab86-72f664fd3656", "status": "STARTED", "progress": 0.0, "error": null }
+   ```
+
+4. **Check job status:**
+   ```bash
+   curl -X GET "http://localhost:8000/job_status/{job_id}"
+   ```
+   **Returns:**
+   ```json
+   { "job_id": "f02af531-3854-48af-ab86-72f664fd3656", "status": "SUCCESS", "progress": 100.0, "error": null, "channel_id": "UCZf5IX90oe5gdPppMXGImwg" }
+   ```
+
+5. **Get relevant chunks:**
+   ```bash
+   curl -X GET "http://localhost:8000/relevant_chunks?query=AI%20ethics&channel_id=UCZf5IX90oe5gdPppMXGImwg&chunk_limit=5&context_window=1"
+   ```
+   **Returns:**
+   ```json
+   { "chunks": [ { "main_chunk": "interests and also AI can enhance...", "score": 0.330345035 }, { "main_chunk": "hi everyone in an era where AI...", "score": 0.333593 }, ... ] }
+   ```
 
 ## Frontend Integration
 
@@ -91,9 +240,23 @@ export const getJobStatus = async (jobId) => {
   return response.data;
 };
 
-export const getRelevantChunks = async (query, channelId, chunkLimit = 5, contextWindow = 1) => {
+export const getRelevantChunks = async (query, channelUrl, chunkLimit = 5, contextWindow = 1) => {
   const response = await axios.get(`${API_BASE_URL}/relevant_chunks`, {
-    params: { query, channel_id: channelId, chunk_limit: chunkLimit, context_window: contextWindow }
+    params: { query, channel_url: channelUrl, chunk_limit: chunkLimit, context_window: contextWindow }
+  });
+  return response.data;
+};
+
+export const getChannelInfo = async (channelUrl) => {
+  const response = await axios.get(`${API_BASE_URL}/channel_info`, {
+    params: { channel_url: channelUrl }
+  });
+  return response.data;
+};
+
+export const refreshChannelMetadata = async (channelUrl) => {
+  const response = await axios.post(`${API_BASE_URL}/refresh_channel_metadata`, null, {
+    params: { channel_url: channelUrl }
   });
   return response.data;
 };

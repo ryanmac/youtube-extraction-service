@@ -8,6 +8,7 @@ import redis
 # from tenacity import retry, stop_after_attempt, wait_exponential
 from app.services.pinecone_service import transcript_exists, store_embeddings, get_index_stats
 from app.core.celery_config import celery_app
+from app.services.channel_service import get_channel_metadata, store_channel_metadata
 
 redis_client = redis.Redis.from_url(settings.REDIS_URL)
 logger = logging.getLogger(__name__)
@@ -16,9 +17,19 @@ logger = logging.getLogger(__name__)
 @celery_app.task(bind=True)
 def start_channel_processing(self, channel_url: str, video_limit: int = 5):
     try:
+        # Extract channel name or ID from URL
+        channel_name_or_id = channel_url.split('/')[-1]
+
+        # Fetch and store channel metadata
+        channel_metadata = get_channel_metadata(channel_name_or_id)
+        if not channel_metadata:
+            raise Exception(f"Channel metadata not found for {channel_name_or_id}")
+        store_channel_metadata(channel_metadata)
+        channel_id = channel_metadata['id']
+
         logger.info(f"Starting channel processing for {channel_url}")
         fy = YoutubeScraper(url=channel_url)
-        channel_id = fy.get_channel_id(url=channel_url)
+        # channel_id = fy.get_channel_id(url=channel_url)
         logger.info(f"Channel ID: {channel_id}")
         video_ids = fy.get_video_ids(limit=max(video_limit, settings.MAX_VIDEOS_PER_CHANNEL))
         logger.info(f"Found {len(video_ids)} videos")

@@ -6,6 +6,18 @@ import time
 def test_end_to_end_channel_processing(test_client, mock_youtube_scraper, mock_pinecone):
     channel_url = "https://www.youtube.com/@drwaku"
 
+    # Check if channel exists and fetch metadata
+    response = test_client.get(f"/channel_info?channel_url={channel_url}")
+    assert response.status_code == status.HTTP_200_OK
+    channel_info = response.json()
+    assert "metadata" in channel_info
+    channel_id = channel_info["channel_id"]
+
+    # Refresh channel metadata
+    response = test_client.post("/refresh_channel_metadata", params={"channel_url": channel_url})
+    assert response.status_code == status.HTTP_200_OK
+    assert "metadata" in response.json()
+
     # Start channel processing
     response = test_client.post("/process_channel", json={"channel_url": channel_url})
     assert response.status_code == status.HTTP_200_OK

@@ -6,9 +6,27 @@ from app.models.schemas import ChannelRequest, JobStatus, RelevantChunksResponse
 from app.services.youtube_scraper import start_channel_processing
 from app.core.celery_config import celery_app
 from app.services.pinecone_service import retrieve_relevant_transcripts
+from app.services.channel_service import get_channel_info, get_channel_metadata, store_channel_metadata
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+@router.get("/channel_info")
+async def channel_info(channel_url: str):
+    info = get_channel_info(channel_url)
+    if not info:
+        raise HTTPException(status_code=404, detail="Channel not found or no data available")
+    return info
+
+
+@router.post("/refresh_channel_metadata")
+async def refresh_channel_metadata(channel_url: str):
+    metadata = get_channel_metadata(channel_url)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Channel not found or unable to fetch metadata")
+    store_channel_metadata(metadata)
+    return {"message": "Channel metadata refreshed successfully", "metadata": metadata}
 
 
 # TODO: add a check to see if the channel has been processed in the last 24 hours

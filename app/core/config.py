@@ -1,3 +1,4 @@
+# app/core/config.py
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 from typing import Optional
@@ -17,6 +18,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     PINECONE_HOST: Optional[str] = None
     PINECONE_PROJECT_ID: Optional[str] = None
+    YOUTUBE_API_KEY: str
 
     @property
     def REDIS_URL(self) -> str:

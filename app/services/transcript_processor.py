@@ -1,3 +1,4 @@
+# app/services/transcript_processor.py
 import logging
 from celery import shared_task
 from app.services.pinecone_service import store_embeddings
