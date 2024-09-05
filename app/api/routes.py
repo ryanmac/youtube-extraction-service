@@ -6,7 +6,7 @@ from app.models.schemas import ChannelRequest, JobStatus, RelevantChunksResponse
 from app.services.youtube_scraper import start_channel_processing
 from app.core.celery_config import celery_app
 from app.services.pinecone_service import retrieve_relevant_transcripts
-from app.services.channel_service import get_channel_info, get_channel_metadata, store_channel_metadata
+from app.services.channel_service import get_channel_info as get_channel_info_service, get_channel_metadata, store_channel_metadata
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -14,19 +14,32 @@ logger = logging.getLogger(__name__)
 
 @router.get("/channel_info")
 async def channel_info(channel_url: str):
-    info = get_channel_info(channel_url)
+    info = get_channel_info_service(channel_url)
     if not info:
-        raise HTTPException(status_code=404, detail="Channel not found or no data available")
+        raise HTTPException(status_code=404, detail=f"Channel not found or no data available for {channel_url}")
     return info
 
 
 @router.post("/refresh_channel_metadata")
 async def refresh_channel_metadata(channel_url: str):
-    metadata = get_channel_metadata(channel_url)
-    if not metadata:
-        raise HTTPException(status_code=404, detail="Channel not found or unable to fetch metadata")
-    store_channel_metadata(metadata)
-    return {"message": "Channel metadata refreshed successfully", "metadata": metadata}
+    try:
+        logger.info(f"Refreshing metadata for channel: {channel_url}")
+        metadata = get_channel_metadata(channel_url)
+        if metadata is None:
+            logger.error(f"Failed to fetch metadata for channel: {channel_url}")
+            raise HTTPException(status_code=404, detail="Channel not found or unable to fetch metadata")
+        if not metadata:
+            logger.warning(f"No metadata found for channel: {channel_url}")
+            return {"message": "No metadata available for this channel", "metadata": {}}
+        logger.info(f"Successfully fetched metadata for channel: {channel_url}")
+        store_channel_metadata(metadata)
+        logger.info(f"Stored metadata for channel: {channel_url}")
+        return {"message": "Channel metadata refreshed successfully", "metadata": metadata}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in refresh_channel_metadata: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 # TODO: add a check to see if the channel has been processed in the last 24 hours

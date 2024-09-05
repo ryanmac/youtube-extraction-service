@@ -21,7 +21,9 @@ def cached_api_call(cache_key, url, expiration_days=7):
     redis_client = celery_app.backend.client
     cached_data = redis_client.get(cache_key)
     if cached_data:
+        logger.info(f"Using cached data for {url}")
         return json.loads(cached_data)
+    logger.info(f"Fetching fresh data from {url}")
     try:
         with urlopen(url) as response:
             data = json.load(response)
@@ -35,17 +37,22 @@ def cached_api_call(cache_key, url, expiration_days=7):
 def get_channel_id(channel_name):
     query = '%20'.join(channel_name.split())
     search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type=channel&key={settings.YOUTUBE_API_KEY}'
-    logger.info(f"Fetching channel ID for {channel_name}")
+    logger.info(f"Fetching channel ID for {channel_name} at URL: {search_url}")
     cache_key = f"channel_id:{channel_name}"
     data = cached_api_call(cache_key, search_url)
     if not data:
         return None
 
-    channel_info = data.get("items", [])
+    channel_info = data if isinstance(data, list) else data.get("items", [])
     if not channel_info:
         return None
 
-    channel_id = channel_info[0].get("id", {}).get("channelId")
+    logger.info(f"Found channel info for {channel_name}")
+    logger.info(json.dumps(channel_info, indent=2))
+
+    # extract the channel ID
+    channel_id = channel_info[0]["id"] if isinstance(channel_info[0]["id"], str) else channel_info[0]["id"].get("channelId")
+    logger.info(f"Channel ID: {channel_id}")
     return channel_id
 
 
@@ -55,6 +62,7 @@ def build_url(channel_id, parts):
 
 
 def get_channel_metadata(channel_url_or_id):
+    logger.info(f"Getting metadata for channel: {channel_url_or_id}")
     channel_name = extract_channel_name(channel_url_or_id)
     channel_id = get_channel_id(channel_name) if channel_name else channel_url_or_id
 
@@ -66,13 +74,16 @@ def get_channel_metadata(channel_url_or_id):
     cache_key = f"channel_metadata:{channel_id}"
     data = cached_api_call(cache_key, url)
 
-    if not data:
-        return None
+    items = data.get("items", [])
+    if not items:
+        logger.warning(f"No items found in channel metadata for channel ID: {channel_id}")
+        return {}
 
-    return data.get("items", [])[0]
+    return items[0]
 
 
 def store_channel_metadata(channel_metadata):
+    logger.info(f"Storing metadata for channel: {channel_metadata['snippet']['title']}")
     redis_client = celery_app.backend.client
     channel_id = channel_metadata['id']
     expiration = timedelta(days=7)
@@ -80,6 +91,7 @@ def store_channel_metadata(channel_metadata):
 
 
 def get_stored_channel_metadata(channel_id):
+    logger.info(f"Getting stored metadata for channel: {channel_id}")
     redis_client = celery_app.backend.client
     metadata = redis_client.get(f"channel_metadata:{channel_id}")
     return json.loads(metadata) if metadata else None
@@ -87,9 +99,12 @@ def get_stored_channel_metadata(channel_id):
 
 def get_channel_info(channel_url_or_id):
     channel_name = extract_channel_name(channel_url_or_id)
+    logger.info(f"Getting info for channel: {channel_name or channel_url_or_id}")
     channel_id = get_channel_id(channel_name) if channel_name else channel_url_or_id
+    logger.info(f"Channel ID: {channel_id}")
 
     if not channel_id:
+        logger.info(f"Channel not found: {channel_name or channel_url_or_id}")
         return None
 
     try:
@@ -97,6 +112,7 @@ def get_channel_info(channel_url_or_id):
         metadata = get_stored_channel_metadata(channel_id)
         if not metadata:
             # If not cached, fetch and store
+            logger.info(f"Fetching fresh metadata for channel: {channel_id}")
             metadata = get_channel_metadata(channel_id)
             if metadata:
                 store_channel_metadata(metadata)

@@ -1,3 +1,4 @@
+# tests/unit/test_pinecone_service.py
 import pytest
 from app.services.pinecone_service import generate_embedding
 from unittest.mock import MagicMock
