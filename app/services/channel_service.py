@@ -17,35 +17,41 @@ def extract_channel_name(url):
     return match.group(1) if match else None
 
 
+def cached_api_call(cache_key, url, expiration_days=7):
+    redis_client = celery_app.backend.client
+    cached_data = redis_client.get(cache_key)
+    if cached_data:
+        return json.loads(cached_data)
+    try:
+        with urlopen(url) as response:
+            data = json.load(response)
+        redis_client.setex(cache_key, int(timedelta(days=expiration_days).total_seconds()), json.dumps(data))
+        return data
+    except Exception as e:
+        logger.error(f"Error fetching data: {e}")
+        return None
+
+
 def get_channel_id(channel_name):
     query = '%20'.join(channel_name.split())
     search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type=channel&key={settings.YOUTUBE_API_KEY}'
-    try:
-        with urlopen(search_url) as response:
-            data = json.load(response)
-        channel_info = data.get("items", [])
-        if not channel_info:
-            return None
-        channel_id = channel_info[0].get("id", {}).get("channelId")
-        return channel_id
-    except Exception as e:
-        logger.error(f"Error fetching channel ID: {e}")
+    logger.info(f"Fetching channel ID for {channel_name}")
+    cache_key = f"channel_id:{channel_name}"
+    data = cached_api_call(cache_key, search_url)
+    if not data:
         return None
+
+    channel_info = data.get("items", [])
+    if not channel_info:
+        return None
+
+    channel_id = channel_info[0].get("id", {}).get("channelId")
+    return channel_id
 
 
 def build_url(channel_id, parts):
     parts_str = ','.join(parts)
     return f'https://www.googleapis.com/youtube/v3/channels?id={channel_id}&key={settings.YOUTUBE_API_KEY}&part={parts_str}'
-
-
-def fetch_channel_data(url):
-    try:
-        with urlopen(url) as response:
-            data = json.load(response)
-        return data.get("items", [])[0]
-    except Exception as e:
-        logger.error(f"Error fetching data: {e}")
-        return None
 
 
 def get_channel_metadata(channel_url_or_id):
@@ -57,13 +63,19 @@ def get_channel_metadata(channel_url_or_id):
 
     parts = ['snippet', 'statistics', 'topicDetails', 'status', 'brandingSettings', 'localizations']
     url = build_url(channel_id, parts)
-    return fetch_channel_data(url)
+    cache_key = f"channel_metadata:{channel_id}"
+    data = cached_api_call(cache_key, url)
+
+    if not data:
+        return None
+
+    return data.get("items", [])[0]
 
 
 def store_channel_metadata(channel_metadata):
     redis_client = celery_app.backend.client
     channel_id = channel_metadata['id']
-    expiration = timedelta(days=1)
+    expiration = timedelta(days=7)
     redis_client.setex(f"channel_metadata:{channel_id}", int(expiration.total_seconds()), json.dumps(channel_metadata))
 
 
