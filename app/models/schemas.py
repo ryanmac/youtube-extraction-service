@@ -3,7 +3,8 @@ from typing import List, Optional
 
 
 class ChannelRequest(BaseModel):
-    channel_url: HttpUrl
+    channel_id: Optional[str] = None
+    channel_url: Optional[HttpUrl] = None
     video_limit: Optional[int] = 5
 
 
