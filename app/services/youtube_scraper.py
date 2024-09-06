@@ -16,10 +16,18 @@ logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True)
-def start_channel_processing(self, channel_id: str = None, channel_url: str = None, video_limit: int = 5):
+def start_channel_processing(self, **kwargs):
     """
     Processes the videos from a specified YouTube channel by either using a channel ID or extracting it from a channel URL.
     """
+    # Extract the keyword arguments
+    channel_id = kwargs.get('channel_id')
+    channel_url = kwargs.get('channel_url')
+    video_limit = kwargs.get('video_limit', 5)
+
+    # Print out the arguments received for debugging
+    logger.info(f"start_channel_processing received arguments: channel_id={channel_id}, channel_url={channel_url}, video_limit={video_limit}")
+
     # Step 1: Validate input
     if not channel_id and not channel_url:
         raise ValueError("Either channel_id or channel_url must be provided")

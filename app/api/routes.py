@@ -49,11 +49,11 @@ async def process_channel(channel_request: ChannelRequest):
     try:
         logger.info(f"Received request to process channel: {channel_request.channel_url}")
         job = start_channel_processing.apply_async(
-            args=[
-                str(channel_request.channel_id),
-                str(channel_request.channel_url),
-                channel_request.video_limit
-                ],
+            kwargs={
+                'channel_id': str(channel_request.channel_id),
+                'channel_url': str(channel_request.channel_url),
+                'video_limit': channel_request.video_limit
+            },
             queue='celery'
         )
         logger.info(f"Started channel processing job with ID: {job.id}")
