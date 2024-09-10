@@ -1,4 +1,4 @@
-# conftest.py
+# tests/conftest.py
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
@@ -42,3 +42,8 @@ def mock_openai():
             "data": [{"embedding": [0.1] * 1536}]
         }
         yield mock
+
+
+@pytest.fixture(scope="session")
+def api_key_header():
+    return {"Authorization": f"Bearer {settings.YES_API_KEY}"}

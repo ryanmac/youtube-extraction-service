@@ -1,19 +1,20 @@
 # app/api/routes.py
 import logging
 import asyncio
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from app.models.schemas import ChannelRequest, JobStatus, RelevantChunksResponse, RelevantChunk
 from app.services.youtube_scraper import start_channel_processing
 from app.core.celery_config import celery_app
 from app.services.pinecone_service import retrieve_relevant_transcripts
 from app.services.channel_service import get_channel_info as get_channel_info_service, get_channel_metadata, store_channel_metadata
+from app.api.deps import get_api_key
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.get("/channel_info")
-async def channel_info(channel_url: str):
+async def channel_info(channel_url: str, api_key: str = Depends(get_api_key)):
     info = get_channel_info_service(channel_url)
     if not info:
         raise HTTPException(status_code=404, detail=f"Channel not found or no data available for {channel_url}")
@@ -21,7 +22,7 @@ async def channel_info(channel_url: str):
 
 
 @router.post("/refresh_channel_metadata")
-async def refresh_channel_metadata(channel_url: str):
+async def refresh_channel_metadata(channel_url: str, api_key: str = Depends(get_api_key)):
     try:
         logger.info(f"Refreshing metadata for channel: {channel_url}")
         metadata = get_channel_metadata(channel_url)
@@ -45,7 +46,7 @@ async def refresh_channel_metadata(channel_url: str):
 # TODO: add a check to see if the channel has been processed in the last 24 hours
 # TODO: store the channel username in the index, not just the channel ID for faster lookups
 @router.post("/process_channel", response_model=JobStatus)
-async def process_channel(channel_request: ChannelRequest):
+async def process_channel(channel_request: ChannelRequest, api_key: str = Depends(get_api_key)):
     try:
         logger.info(f"Received request to process channel: {channel_request.channel_url}")
         job = start_channel_processing.apply_async(
@@ -64,7 +65,7 @@ async def process_channel(channel_request: ChannelRequest):
 
 
 @router.get("/job_status/{job_id}", response_model=JobStatus)
-async def get_job_status(job_id: str):
+async def get_job_status(job_id: str, api_key: str = Depends(get_api_key)):
     try:
         job = celery_app.AsyncResult(job_id)
         logger.info(f"Job status for {job_id}: {job.state}")
@@ -102,7 +103,8 @@ async def get_relevant_chunks(
     query: str = Query(..., description="The query to search for relevant chunks"),
     channel_id: str = Query(..., description="Channel ID to search in"),
     chunk_limit: int = Query(5, description="Number of top chunks to retrieve"),
-    context_window: int = Query(1, description="Number of context chunks before and after the main chunk")
+    context_window: int = Query(1, description="Number of context chunks before and after the main chunk"),
+    api_key: str = Depends(get_api_key)
 ):
     try:
         relevant_chunks = retrieve_relevant_transcripts(query, [channel_id], chunk_limit, context_window)

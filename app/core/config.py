@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     PINECONE_HOST: Optional[str] = None
     PINECONE_PROJECT_ID: Optional[str] = None
     YOUTUBE_API_KEY: str
+    YES_API_KEY: str
 
     @property
     def REDIS_URL(self) -> str:

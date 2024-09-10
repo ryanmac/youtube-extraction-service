@@ -2,6 +2,12 @@
 import pytest
 from fastapi import status
 from unittest.mock import patch, MagicMock
+from app.core.config import settings
+
+
+@pytest.fixture(scope="session")
+def api_key_header():
+    return {"Authorization": f"Bearer {settings.YES_API_KEY}"}
 
 
 @pytest.fixture
@@ -40,7 +46,7 @@ def mock_pinecone():
         yield mock
 
 
-def test_fetch_channel_info(mock_get_channel_info, test_client):
+def test_fetch_channel_info(mock_get_channel_info, test_client, api_key_header):
     channel_url = "https://www.youtube.com/@drwaku"
 
     # Mock response for get_channel_info
@@ -54,14 +60,14 @@ def test_fetch_channel_info(mock_get_channel_info, test_client):
         }
     }
 
-    response = test_client.get(f"/channel_info?channel_url={channel_url}")
+    response = test_client.get(f"/channel_info?channel_url={channel_url}", headers=api_key_header)
     assert response.status_code == status.HTTP_200_OK, "/channel_info failed"
     channel_info = response.json()
     assert "metadata" in channel_info, "Channel metadata not found"
     assert channel_info["channel_id"] == "UCZf5IX90oe5gdPppMXGImwg", "Channel ID mismatch"
 
 
-def test_start_channel_processing(mock_start_channel_processing, mock_celery_async_result, test_client):
+def test_start_channel_processing(mock_start_channel_processing, mock_celery_async_result, test_client, api_key_header):
     channel_url = "https://www.youtube.com/@drwaku"
 
     # Mock Celery task
@@ -75,13 +81,13 @@ def test_start_channel_processing(mock_start_channel_processing, mock_celery_asy
     mock_async_result.result = {"progress": 100, "channel_id": "UCZf5IX90oe5gdPppMXGImwg"}
     mock_celery_async_result.return_value = mock_async_result
 
-    response = test_client.post("/process_channel", json={"channel_url": channel_url, "video_limit": 2})
+    response = test_client.post("/process_channel", json={"channel_url": channel_url, "video_limit": 2}, headers=api_key_header)
     assert response.status_code == status.HTTP_200_OK, "/process_channel failed"
     job_id = response.json()["job_id"]
     assert job_id == "test_task_id", "Job ID mismatch"
 
 
-def test_check_job_status(mock_celery_async_result, test_client):
+def test_check_job_status(mock_celery_async_result, test_client, api_key_header):
     job_id = "test_task_id"
 
     # Mock AsyncResult state
@@ -90,14 +96,14 @@ def test_check_job_status(mock_celery_async_result, test_client):
     mock_async_result.result = {"progress": 100, "channel_id": "UCZf5IX90oe5gdPppMXGImwg"}
     mock_celery_async_result.return_value = mock_async_result
 
-    response = test_client.get(f"/job_status/{job_id}")
+    response = test_client.get(f"/job_status/{job_id}", headers=api_key_header)
     assert response.status_code == status.HTTP_200_OK, "/job_status failed"
     status_data = response.json()
     assert status_data["status"] == "SUCCESS", "Job did not complete successfully"
     assert status_data["channel_id"] == "UCZf5IX90oe5gdPppMXGImwg", "Channel ID mismatch"
 
 
-def test_retrieve_relevant_chunks(mock_pinecone, test_client):
+def test_retrieve_relevant_chunks(mock_pinecone, test_client, api_key_header):
     channel_id = "UCZf5IX90oe5gdPppMXGImwg"
     query = "test query"
 
@@ -117,7 +123,7 @@ def test_retrieve_relevant_chunks(mock_pinecone, test_client):
         "channel_id": channel_id,
         "chunk_limit": 5,
         "context_window": 1
-    })
+    }, headers=api_key_header)
 
     assert response.status_code == status.HTTP_200_OK, "/relevant_chunks failed"
     chunks = response.json()["chunks"]

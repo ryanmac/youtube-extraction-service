@@ -181,16 +181,25 @@ pytest tests/e2e/test_channel_processing.py
    }
    ```
 
-3. **Process a channel:**
+3. **Process a channel from a URL:**
    ```bash
-   curl -X POST "http://localhost:8000/process_channel" -H "Content-Type: application/json" -d '{"channel_url": "https://www.youtube.com/@drwaku"}'
+   curl -X POST "http://localhost:8000/process_channel" -H "Content-Type: application/json" -d '{"channel_url": "https://www.youtube.com/channel/@drwaku", "video_limit": 5}'
    ```
    **Returns:**
    ```json
    { "job_id": "f02af531-3854-48af-ab86-72f664fd3656", "status": "STARTED", "progress": 0.0, "error": null }
    ```
 
-4. **Check job status:**
+4. **Process a channel from an ID:**
+   ```bash
+   curl -X POST "http://localhost:8000/process_channel" -H "Content-Type: application/json" -d '{"channel_id": "UCqhM8e549EVcpmV8eTFHKjg", "video_limit": 5}'
+   ```
+   **Returns:**
+   ```json
+   { "job_id": "f02af531-3854-48af-ab86-72f664fd3656", "status": "STARTED", "progress": 0.0, "error": null }
+   ```
+
+5. **Check job status:**
    ```bash
    curl -X GET "http://localhost:8000/job_status/{job_id}"
    ```
@@ -199,7 +208,7 @@ pytest tests/e2e/test_channel_processing.py
    { "job_id": "f02af531-3854-48af-ab86-72f664fd3656", "status": "SUCCESS", "progress": 100.0, "error": null, "channel_id": "UCZf5IX90oe5gdPppMXGImwg" }
    ```
 
-5. **Get relevant chunks:**
+6. **Get relevant chunks:**
    ```bash
    curl -X GET "http://localhost:8000/relevant_chunks?query=AI%20ethics&channel_id=UCZf5IX90oe5gdPppMXGImwg&chunk_limit=5&context_window=1"
    ```
