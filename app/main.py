@@ -26,11 +26,16 @@ async def lifespan(app: FastAPI):
     logger.info("Application is shutting down")
 
 
-app = FastAPI(title=settings.PROJECT_NAME)
+app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost", "https://channel-chat-xyz.vercel.app", "https://channelchat.xyz"],
+    allow_origins=[
+        "http://localhost",  # Local
+        "https://channel-chat-xyz.vercel.app",  # Vercel
+        "https://channelchat.xyz",  # Prod
+        "https://www.channelchat.xyz",  # Prod
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
