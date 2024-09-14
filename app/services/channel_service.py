@@ -38,17 +38,6 @@ def cached_api_call(cache_key, url, expiration_days=7):
 
 
 def get_channel_id(channel_name):
-    # if channel_name still starts with https://youtube.com/channel/, extract the channel name
-    prefixes = [
-        'https://www.youtube.com/channel/',
-        'https://youtube.com/channel/',
-        'https://www.youtube.com/',
-        'https://youtube.com/'
-    ]
-    # if the channel name starts with any of the prefixes, remove it, in sequence:
-    for prefix in prefixes:
-        if channel_name.startswith(prefix):
-            channel_name = channel_name.replace(prefix, "")
     query = '%20'.join(channel_name.split())
     search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type=channel&key={settings.YOUTUBE_API_KEY}'
     logger.info(f"Fetching channel ID for {channel_name} at URL: {search_url}")
