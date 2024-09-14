@@ -12,7 +12,7 @@ def api_key_header():
 
 @pytest.fixture
 def mock_get_channel_info():
-    with patch('app.services.channel_service.get_channel_info') as mock:
+    with patch('app.api.routes.get_channel_info_service') as mock:
         yield mock
 
 
@@ -68,7 +68,7 @@ def test_fetch_channel_info(mock_get_channel_info, test_client, api_key_header):
 
 
 def test_start_channel_processing(mock_start_channel_processing, mock_celery_async_result, test_client, api_key_header):
-    channel_url = "https://www.youtube.com/@drwaku"
+    channel_id = "UCZf5IX90oe5gdPppMXGImwg"
 
     # Mock Celery task
     mock_task = MagicMock()
@@ -78,10 +78,10 @@ def test_start_channel_processing(mock_start_channel_processing, mock_celery_asy
     # Mock AsyncResult state
     mock_async_result = MagicMock()
     mock_async_result.state = "SUCCESS"
-    mock_async_result.result = {"progress": 100, "channel_id": "UCZf5IX90oe5gdPppMXGImwg"}
+    mock_async_result.result = {"progress": 100, "channel_id": channel_id}
     mock_celery_async_result.return_value = mock_async_result
 
-    response = test_client.post("/process_channel", json={"channel_url": channel_url, "video_limit": 2}, headers=api_key_header)
+    response = test_client.post("/process_channel", json={"channel_id": channel_id, "video_limit": 2}, headers=api_key_header)
     assert response.status_code == status.HTTP_200_OK, "/process_channel failed"
     job_id = response.json()["job_id"]
     assert job_id == "test_task_id", "Job ID mismatch"

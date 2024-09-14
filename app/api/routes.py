@@ -8,33 +8,52 @@ from app.core.celery_config import celery_app
 from app.services.pinecone_service import retrieve_relevant_transcripts
 from app.services.channel_service import get_channel_info as get_channel_info_service, get_channel_metadata, store_channel_metadata
 from app.api.deps import get_api_key
+from typing import Optional
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.get("/channel_info")
-async def channel_info(channel_url: str, api_key: str = Depends(get_api_key)):
-    info = get_channel_info_service(channel_url)
+async def channel_info(
+    channel_id: Optional[str] = Query(None, description="Channel ID to search for, e.g., 'UC6vLzWN-3aFG8dgTgEOlx5g'"),
+    channel_name: Optional[str] = Query(None, description="Channel name to search for, e.g., 'drwaku'"),
+    channel_url: Optional[str] = Query(None, description="Channel URL to search for, e.g., 'https://www.youtube.com/@drwaku' or 'https://www.youtube.com/channel/@drwaku' or 'https://youtube.com/@drwaku'"),
+    api_key: str = Depends(get_api_key)
+):
+    if not channel_id and not channel_name and not channel_url:
+        raise HTTPException(status_code=400, detail="Please provide a channel ID, channel name, or channel URL")
+    info = get_channel_info_service(
+        channel_id=channel_id,
+        channel_name=channel_name,
+        channel_url=channel_url
+    )
     if not info:
         raise HTTPException(status_code=404, detail=f"Channel not found or no data available for {channel_url}")
     return info
 
 
 @router.post("/refresh_channel_metadata")
-async def refresh_channel_metadata(channel_url: str, api_key: str = Depends(get_api_key)):
+async def refresh_channel_metadata(
+    channel_id: Optional[str] = Query(None, description="Channel ID to refresh metadata for, e.g., 'UC6vLzWN-3aFG8dgTgEOlx5g'"),
+    channel_name: Optional[str] = Query(None, description="Channel name to refresh metadata for, e.g., 'drwaku'"),
+    channel_url: Optional[str] = Query(None, description="Channel URL to refresh metadata for, e.g., 'https://www.youtube.com/@drwaku' or 'https://www.youtube.com/channel/@drwaku' or 'https://youtube.com/@drwaku'"),
+    api_key: str = Depends(get_api_key)
+):
+    if not channel_id and not channel_name and not channel_url:
+        raise HTTPException(status_code=400, detail="Please provide a channel ID, channel name, or channel URL")
     try:
-        logger.info(f"Refreshing metadata for channel: {channel_url}")
-        metadata = get_channel_metadata(channel_url)
+        logger.info(f"Refreshing metadata for channel: {channel_id}")
+        metadata = get_channel_metadata(channel_id)
         if metadata is None:
-            logger.error(f"Failed to fetch metadata for channel: {channel_url}")
+            logger.error(f"Failed to fetch metadata for channel: {channel_id}")
             raise HTTPException(status_code=404, detail="Channel not found or unable to fetch metadata")
         if not metadata:
-            logger.warning(f"No metadata found for channel: {channel_url}")
+            logger.warning(f"No metadata found for channel: {channel_id}")
             return {"message": "No metadata available for this channel", "metadata": {}}
-        logger.info(f"Successfully fetched metadata for channel: {channel_url}")
+        logger.info(f"Successfully fetched metadata for channel: {channel_id}")
         store_channel_metadata(metadata)
-        logger.info(f"Stored metadata for channel: {channel_url}")
+        logger.info(f"Stored metadata for channel: {channel_id}")
         return {"message": "Channel metadata refreshed successfully", "metadata": metadata}
     except HTTPException:
         raise
@@ -48,11 +67,10 @@ async def refresh_channel_metadata(channel_url: str, api_key: str = Depends(get_
 @router.post("/process_channel", response_model=JobStatus)
 async def process_channel(channel_request: ChannelRequest, api_key: str = Depends(get_api_key)):
     try:
-        logger.info(f"Received request to process channel: {channel_request.channel_url}")
+        logger.info(f"Received request to process channel_id: {channel_request.channel_id} for {channel_request.video_limit} videos")
         job = start_channel_processing.apply_async(
             kwargs={
                 'channel_id': str(channel_request.channel_id),
-                'channel_url': str(channel_request.channel_url),
                 'video_limit': channel_request.video_limit
             },
             queue='celery'

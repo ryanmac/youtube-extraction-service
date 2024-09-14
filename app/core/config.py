@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     PINECONE_API_KEY: str
     PINECONE_ENVIRONMENT: str
     PINECONE_INDEX_NAME: str
-    MAX_VIDEOS_PER_CHANNEL: int = 5
+    MAX_VIDEOS_PER_CHANNEL: int = 1000
     CHUNK_SIZE: int = 200
     OPENAI_API_KEY: Optional[str] = None
     PINECONE_HOST: Optional[str] = None

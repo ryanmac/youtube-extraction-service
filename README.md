@@ -79,143 +79,271 @@ pytest tests/e2e/test_channel_processing.py
 
 ## Usage Examples
 
-1. **Get channel information:**
+Below are updated usage examples that align with the new API structure:
+
+### 1. **Get Channel Information**
+
+You can retrieve channel information by providing a `channel_id`, `channel_name`, or `channel_url` as query parameters.
+
+**Using Channel URL:**
+
+```bash
+curl -X GET "http://localhost:8000/channel_info?channel_url=https://www.youtube.com/@drwaku"
+```
+
+**Using Channel ID:**
+
+```bash
+curl -X GET "http://localhost:8000/channel_info?channel_id=UCZf5IX90oe5gdPppMXGImwg"
+```
+
+**Using Channel Name:**
+
+```bash
+curl -X GET "http://localhost:8000/channel_info?channel_name=drwaku"
+```
+
+**Returns:**
+
+```json
+{
+  "channel_id": "UCZf5IX90oe5gdPppMXGImwg",
+  "unique_video_count": 51,
+  "total_embeddings": 1734,
+  "metadata": {
+    "snippet": {
+      "title": "Dr Waku",
+      "description": "...",
+      "customUrl": "@drwaku",
+      "publishedAt": "2023-04-05T21:05:39.174844Z",
+      "thumbnails": {
+        "default": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 88, "height": 88 },
+        "medium": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 240, "height": 240 },
+        "high": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 800, "height": 800 }
+      },
+      "country": "CA"
+    },
+    "statistics": {
+      "viewCount": "743515",
+      "subscriberCount": "15800",
+      "hiddenSubscriberCount": false,
+      "videoCount": "128"
+    },
+    "topicDetails": {
+      "topicCategories": [
+        "https://en.wikipedia.org/wiki/Technology",
+        "https://en.wikipedia.org/wiki/Health",
+        "https://en.wikipedia.org/wiki/Knowledge",
+        "https://en.wikipedia.org/wiki/Lifestyle_(sociology)"
+      ]
+    },
+    "status": {
+      "privacyStatus": "public",
+      "isLinked": true,
+      "madeForKids": false
+    },
+    "brandingSettings": {
+      "channel": {
+        "title": "Dr Waku",
+        "description": "...",
+        "country": "CA"
+      },
+      "image": {
+        "bannerExternalUrl": "https://yt3.googleusercontent.com/TfX10Zv3y9..."
+      }
+    }
+  }
+}
+```
+
+### 2. **Refresh Channel Metadata**
+
+Refresh the metadata for a specific channel by providing a `channel_id`, `channel_name`, or `channel_url` as query parameters.
+
+**Using Channel URL:**
+
+```bash
+curl -X POST "http://localhost:8000/refresh_channel_metadata?channel_url=https://www.youtube.com/@drwaku"
+```
+
+**Using Channel ID:**
+
+```bash
+curl -X POST "http://localhost:8000/refresh_channel_metadata?channel_id=UCZf5IX90oe5gdPppMXGImwg"
+```
+
+**Returns:**
+
+```json
+{
+  "message": "Channel metadata refreshed successfully",
+  "metadata": {
+    "snippet": {
+      "title": "Dr Waku",
+      "description": "...",
+      "customUrl": "@drwaku",
+      "publishedAt": "2023-04-05T21:05:39.174844Z",
+      "thumbnails": {
+        "default": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 88, "height": 88 },
+        "medium": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 240, "height": 240 },
+        "high": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 800, "height": 800 }
+      },
+      "country": "CA"
+    },
+    "statistics": {
+      "viewCount": "743515",
+      "subscriberCount": "15800",
+      "hiddenSubscriberCount": false,
+      "videoCount": "128"
+    },
+    "status": {
+      "privacyStatus": "public",
+      "isLinked": true,
+      "madeForKids": false
+    },
+    "brandingSettings": {
+      "channel": {
+        "title": "Dr Waku",
+        "description": "...",
+        "country": "CA"
+      },
+      "image": {
+        "bannerExternalUrl": "https://yt3.googleusercontent.com/TfX10Zv3y9..."
+      }
+    }
+  }
+}
+```
+
+### 3. **Process a Channel**
+
+To process a channel, you need to provide the `channel_id` in the request body as JSON. Optionally, you can specify the `video_limit`.
+
+**Example:**
+
+```bash
+curl -X POST "http://localhost:8000/process_channel" \
+     -H "Content-Type: application/json" \
+     -d '{"channel_id": "UCqhM8e549EVcpmV8eTFHKjg", "video_limit": 5}'
+```
+
+**Returns:**
+
+```json
+{ "job_id": "f02af531-3854-48af-ab86-72f664fd3656", "status": "STARTED" }
+```
+
+### 4. **Check Job Status**
+
+Retrieve the status of a processing job using the `job_id` obtained from the `/process_channel` endpoint.
+
+```bash
+curl -X GET "http://localhost:8000/job_status/{job_id}"
+```
+
+**Replace `{job_id}` with your actual job ID.**
+
+**Returns:**
+
+```json
+{
+  "job_id": "f02af531-3854-48af-ab86-72f664fd3656",
+  "status": "SUCCESS",
+  "progress": 100.0,
+  "error": null,
+  "channel_id": "UCZf5IX90oe5gdPppMXGImwg"
+}
+```
+
+### 5. **Get Relevant Chunks**
+
+Fetch relevant transcript chunks based on a query and a specific `channel_id`.
+
+```bash
+curl -X GET "http://localhost:8000/relevant_chunks?query=AI%20ethics&channel_id=UCZf5IX90oe5gdPppMXGImwg&chunk_limit=5&context_window=1"
+```
+
+**Returns:**
+
+```json
+{
+  "chunks": [
+    {
+      "main_chunk": "interests and also AI can enhance...",
+      "context_before": ["Previous context..."],
+      "context_after": ["Following context..."],
+      "score": 0.330345035
+    },
+    {
+      "main_chunk": "hi everyone in an era where AI...",
+      "context_before": ["Previous context..."],
+      "context_after": ["Following context..."],
+      "score": 0.333593
+    },
+    // ... more chunks
+  ]
+}
+```
+
+**Note:** The `context_before` and `context_after` fields provide surrounding context based on the `context_window` parameter.
+
+---
+
+**Important Changes:**
+
+- **Removed Processing via Channel URL:** The `/process_channel` endpoint now requires a `channel_id` in the JSON body. Processing via `channel_url` is no longer supported.
+
+- **Unified Query Parameters:** The `/channel_info` and `/refresh_channel_metadata` endpoints accept `channel_id`, `channel_name`, or `channel_url` as query parameters for flexibility.
+
+- **Simplified Responses:** The responses remain consistent, providing essential information such as `channel_id`, `job_id`, and relevant data.
+
+---
+
+**Example Workflow:**
+
+1. **Get Channel Information:**
+
+   Retrieve information to obtain the `channel_id` if you don't already have it.
+
    ```bash
-   curl -X GET "http://localhost:8000/channel_info?channel_url=https://www.youtube.com/@drwaku"
-   ```
-   **Returns:**
-   ```json
-   {
-     "channel_id": "UCZf5IX90oe5gdPppMXGImwg",
-     "unique_video_count": 51,
-     "total_embeddings": 1734,
-     "metadata": {
-       "snippet": {
-         "title": "Dr Waku",
-         "description": "...",
-         "customUrl": "@drwaku",
-         "publishedAt": "2023-04-05T21:05:39.174844Z",
-         "thumbnails": {
-           "default": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 88, "height": 88 },
-           "medium": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 240, "height": 240 },
-           "high": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 800, "height": 800 }
-         },
-         "country": "CA"
-       },
-       "statistics": {
-         "viewCount": "743515",
-         "subscriberCount": "15800",
-         "hiddenSubscriberCount": false,
-         "videoCount": "128"
-       },
-       "topicDetails": {
-         "topicCategories": [
-           "https://en.wikipedia.org/wiki/Technology",
-           "https://en.wikipedia.org/wiki/Health",
-           "https://en.wikipedia.org/wiki/Knowledge",
-           "https://en.wikipedia.org/wiki/Lifestyle_(sociology)"
-         ]
-       },
-       "status": {
-         "privacyStatus": "public",
-         "isLinked": true,
-         "madeForKids": false
-       },
-       "brandingSettings": {
-         "channel": {
-           "title": "Dr Waku",
-           "description": "...",
-           "country": "CA"
-         },
-         "image": {
-           "bannerExternalUrl": "https://yt3.googleusercontent.com/TfX10Zv3y9..."
-         }
-       }
-     }
-   }
+   curl -X GET "http://localhost:8000/channel_info?channel_name=drwaku"
    ```
 
-2. **Refresh channel metadata:**
+2. **Process the Channel:**
+
+   Start processing the channel using the `channel_id`.
+
    ```bash
-   curl -X POST "http://localhost:8000/refresh_channel_metadata?channel_url=https://www.youtube.com/@drwaku"
-   ```
-   **Returns:**
-   ```json
-   {
-     "message": "Channel metadata refreshed successfully",
-     "metadata": {
-       "snippet": {
-         "title": "Dr Waku",
-         "description": "...",
-         "customUrl": "@drwaku",
-         "publishedAt": "2023-04-05T21:05:39.174844Z",
-         "thumbnails": {
-           "default": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 88, "height": 88 },
-           "medium": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 240, "height": 240 },
-           "high": { "url": "https://yt3.ggpht.com/NvRARiOnIb...", "width": 800, "height": 800 }
-         },
-         "country": "CA"
-       },
-       "statistics": {
-         "viewCount": "743515",
-         "subscriberCount": "15800",
-         "hiddenSubscriberCount": false,
-         "videoCount": "128"
-       },
-       "status": {
-         "privacyStatus": "public",
-         "isLinked": true,
-         "madeForKids": false
-       },
-       "brandingSettings": {
-         "channel": {
-           "title": "Dr Waku",
-           "description": "...",
-           "country": "CA"
-         },
-         "image": {
-           "bannerExternalUrl": "https://yt3.googleusercontent.com/TfX10Zv3y9..."
-         }
-       }
-     }
-   }
+   curl -X POST "http://localhost:8000/process_channel" \
+        -H "Content-Type: application/json" \
+        -d '{"channel_id": "UCZf5IX90oe5gdPppMXGImwg", "video_limit": 5}'
    ```
 
-3. **Process a channel from a URL:**
+3. **Check Job Status:**
+
+   Monitor the processing status using the `job_id` returned.
+
    ```bash
-   curl -X POST "http://localhost:8000/process_channel" -H "Content-Type: application/json" -d '{"channel_url": "https://www.youtube.com/channel/@drwaku", "video_limit": 5}'
-   ```
-   **Returns:**
-   ```json
-   { "job_id": "f02af531-3854-48af-ab86-72f664fd3656", "status": "STARTED", "progress": 0.0, "error": null }
+   curl -X GET "http://localhost:8000/job_status/f02af531-3854-48af-ab86-72f664fd3656"
    ```
 
-4. **Process a channel from an ID:**
+4. **Retrieve Relevant Chunks:**
+
+   Once processing is complete, fetch relevant transcript chunks.
+
    ```bash
-   curl -X POST "http://localhost:8000/process_channel" -H "Content-Type: application/json" -d '{"channel_id": "UCqhM8e549EVcpmV8eTFHKjg", "video_limit": 5}'
-   ```
-   **Returns:**
-   ```json
-   { "job_id": "f02af531-3854-48af-ab86-72f664fd3656", "status": "STARTED", "progress": 0.0, "error": null }
+   curl -X GET "http://localhost:8000/relevant_chunks?query=AI%20ethics&channel_id=UCZf5IX90oe5gdPppMXGImwg"
    ```
 
-5. **Check job status:**
-   ```bash
-   curl -X GET "http://localhost:8000/job_status/{job_id}"
-   ```
-   **Returns:**
-   ```json
-   { "job_id": "f02af531-3854-48af-ab86-72f664fd3656", "status": "SUCCESS", "progress": 100.0, "error": null, "channel_id": "UCZf5IX90oe5gdPppMXGImwg" }
-   ```
+---
 
-6. **Get relevant chunks:**
-   ```bash
-   curl -X GET "http://localhost:8000/relevant_chunks?query=AI%20ethics&channel_id=UCZf5IX90oe5gdPppMXGImwg&chunk_limit=5&context_window=1"
-   ```
-   **Returns:**
-   ```json
-   { "chunks": [ { "main_chunk": "interests and also AI can enhance...", "score": 0.330345035 }, { "main_chunk": "hi everyone in an era where AI...", "score": 0.333593 }, ... ] }
-   ```
+**Additional Notes:**
+
+- **API Key Requirement:** Ensure that you include the required API key in your requests if your API is secured.
+
+- **Error Handling:** The API will return appropriate HTTP status codes and error messages if something goes wrong, such as missing parameters or processing errors.
+
+- **Customization:** Adjust parameters like `video_limit`, `chunk_limit`, and `context_window` to fine-tune the data retrieved.
 
 ## Frontend Integration
 

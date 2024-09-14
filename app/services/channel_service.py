@@ -7,6 +7,7 @@ from datetime import timedelta
 from app.core.config import settings
 from app.core.celery_config import celery_app
 from app.services.pinecone_service import index, generate_embedding
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -64,14 +65,15 @@ def build_url(channel_id, parts):
     return f'https://www.googleapis.com/youtube/v3/channels?id={channel_id}&key={settings.YOUTUBE_API_KEY}&part={parts_str}'
 
 
-def get_channel_metadata(channel_url_or_id):
-    logger.info(f"Getting metadata for channel: {channel_url_or_id}")
-    channel_name = extract_channel_name(channel_url_or_id)
-    channel_id = get_channel_id(channel_name) if channel_name else channel_url_or_id
+def get_channel_metadata(channel_id: Optional[str] = None, channel_name: Optional[str] = None, channel_url: Optional[str] = None):
+    if not channel_id:
+        (channel_id, channel_name, channel_url) = get_channel_id_from_name_or_url(channel_name, channel_url)
 
     if not channel_id:
-        logger.info(f"Channel not found: {channel_name or channel_url_or_id}")
+        logger.error(f"Channel not found: {channel_name or channel_url}")
         return None
+
+    logger.info(f"Getting metadata for channel: {channel_id}")
 
     parts = ['snippet', 'statistics', 'topicDetails', 'status', 'brandingSettings', 'localizations']
     url = build_url(channel_id, parts)
@@ -101,17 +103,37 @@ def get_stored_channel_metadata(channel_id):
     return json.loads(metadata) if metadata else None
 
 
-def get_channel_info(channel_url_or_id):
-    channel_name = extract_channel_name(channel_url_or_id)
-    logger.info(f"channel_url_or_id: {channel_url_or_id}")
-    logger.info(f"channel_name: {channel_name}")
-    logger.info(f"Getting info for channel: {channel_name or channel_url_or_id}")
-    channel_id = get_channel_id(channel_name) if channel_name else channel_url_or_id
-    logger.info(f"Channel ID: {channel_id}")
+def get_channel_id_from_name_or_url(channel_name: Optional[str] = None, channel_url: Optional[str] = None):
+    if not channel_name and not channel_url:
+        logger.error("No channel name or URL provided")
+        return None
+
+    if channel_name:
+        channel_id = get_channel_id(channel_name)
+    else:
+        channel_name = extract_channel_name(channel_url)
+        channel_id = get_channel_id(channel_name)
+
+    return {
+        channel_id: channel_id,
+        channel_name: channel_name,
+        channel_url: channel_url
+    }
+
+
+def get_channel_info(channel_id: Optional[str] = None, channel_name: Optional[str] = None, channel_url: Optional[str] = None):
+    if not channel_id and not channel_name and not channel_url:
+        logger.error("No channel ID, channel name, or channel URL provided")
+        return None
 
     if not channel_id:
-        logger.info(f"Channel not found: {channel_name or channel_url_or_id}")
+        (channel_id, channel_name, channel_url) = get_channel_id_from_name_or_url(channel_name, channel_url)
+
+    if not channel_id:
+        logger.error(f"Channel not found: {channel_name or channel_url}")
         return None
+
+    logger.info(f"Channel ID: {channel_id}")
 
     try:
         # Check for cached metadata

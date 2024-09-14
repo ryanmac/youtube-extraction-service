@@ -29,7 +29,7 @@ def mock_api_key_validation():
 def test_process_channel(test_client, mock_celery, mock_api_key_validation, api_key_header):
     mock_celery.send_task.return_value.id = "test_job_id"
 
-    response = test_client.post("/process_channel", json={"channel_url": "https://www.youtube.com/@drwaku"}, headers=api_key_header)
+    response = test_client.post("/process_channel", json={"channel_id": "UCZf5IX90oe5gdPppMXGImwg"}, headers=api_key_header)
 
     assert response.status_code == status.HTTP_200_OK
     assert "job_id" in response.json()
@@ -41,7 +41,7 @@ def test_process_channel_with_valid_api_key(test_client, mock_celery, mock_api_k
 
     response = test_client.post(
         "/process_channel",
-        json={"channel_url": "https://www.youtube.com/@drwaku"},
+        json={"channel_id": "UCZf5IX90oe5gdPppMXGImwg"},
         headers=api_key_header
     )
 

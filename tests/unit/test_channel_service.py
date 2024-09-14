@@ -105,7 +105,7 @@ def test_get_channel_info(mock_redis_client, mock_urlopen, mock_pinecone_index, 
     }
     mock_pinecone_index.describe_index_stats.return_value = {"total_vector_count": 3}
 
-    channel_info = get_channel_info("https://www.youtube.com/@drwaku")
+    channel_info = get_channel_info(channel_url="https://www.youtube.com/@drwaku")
     assert channel_info["channel_id"] == "UCZf5IX90oe5gdPppMXGImwg"
     assert channel_info["unique_video_count"] == 2
     assert channel_info["total_embeddings"] == 3
