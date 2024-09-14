@@ -12,13 +12,16 @@ logger = logging.getLogger(__name__)
 
 
 def extract_channel_name(url):
-    pattern = r"(?:https?:\/\/)?(?:www\.)?youtube\.com\/@([^\/\n?]+)"
+    pattern = r"(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:channel\/)?@([^\/\n?]+)"
     match = re.search(pattern, url)
-    return match.group(1) if match else None
+    channel_name = match.group(1) if match else None
+    logger.info(f"Extracted channel name: {channel_name}")
+    return channel_name
 
 
 def cached_api_call(cache_key, url, expiration_days=7):
     redis_client = celery_app.backend.client
+    logger.info(f"Checking cache for key: {cache_key}")
     cached_data = redis_client.get(cache_key)
     if cached_data:
         logger.info(f"Using cached data for {url}")
@@ -35,6 +38,17 @@ def cached_api_call(cache_key, url, expiration_days=7):
 
 
 def get_channel_id(channel_name):
+    # if channel_name still starts with https://youtube.com/channel/, extract the channel name
+    prefixes = [
+        'https://www.youtube.com/channel/',
+        'https://youtube.com/channel/',
+        'https://www.youtube.com/',
+        'https://youtube.com/'
+    ]
+    # if the channel name starts with any of the prefixes, remove it, in sequence:
+    for prefix in prefixes:
+        if channel_name.startswith(prefix):
+            channel_name = channel_name.replace(prefix, "")
     query = '%20'.join(channel_name.split())
     search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type=channel&key={settings.YOUTUBE_API_KEY}'
     logger.info(f"Fetching channel ID for {channel_name} at URL: {search_url}")
@@ -67,6 +81,7 @@ def get_channel_metadata(channel_url_or_id):
     channel_id = get_channel_id(channel_name) if channel_name else channel_url_or_id
 
     if not channel_id:
+        logger.info(f"Channel not found: {channel_name or channel_url_or_id}")
         return None
 
     parts = ['snippet', 'statistics', 'topicDetails', 'status', 'brandingSettings', 'localizations']
@@ -99,6 +114,8 @@ def get_stored_channel_metadata(channel_id):
 
 def get_channel_info(channel_url_or_id):
     channel_name = extract_channel_name(channel_url_or_id)
+    logger.info(f"channel_url_or_id: {channel_url_or_id}")
+    logger.info(f"channel_name: {channel_name}")
     logger.info(f"Getting info for channel: {channel_name or channel_url_or_id}")
     channel_id = get_channel_id(channel_name) if channel_name else channel_url_or_id
     logger.info(f"Channel ID: {channel_id}")
