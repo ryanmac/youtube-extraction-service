@@ -29,6 +29,9 @@ async def channel_info(
         channel_url=channel_url
     )
     if not info:
+        logger.info(f"channel_id: {channel_id}")
+        logger.info(f"channel_name: {channel_name}")
+        logger.info(f"channel_url: {channel_url}")
         raise HTTPException(status_code=404, detail=f"Channel not found or no data available for {channel_url}")
     return info
 

@@ -164,7 +164,7 @@ def get_channel_info(channel_id: Optional[str] = None, channel_name: Optional[st
         total_embeddings = 0
 
         vector_count = index.describe_index_stats()['total_vector_count']
-        results = index.query(vector=query_embedding, filter={"channel_id": channel_id}, top_k=vector_count, include_metadata=True)
+        results = index.query(vector=query_embedding, filter={"channel_id": channel_id}, top_k=min(vector_count, 10000), include_metadata=True)
 
         for match in results['matches']:
             video_id = match['metadata']['video_id']
