@@ -2,10 +2,10 @@
 import logging
 import asyncio
 from fastapi import APIRouter, HTTPException, Query, Depends
-from app.models.schemas import ChannelRequest, JobStatus, RelevantChunksResponse, RelevantChunk
+from app.models.schemas import ChannelRequest, JobStatus, RelevantChunksResponse, RelevantChunk, RecentChunksResponse, RecentChunk
 from app.services.youtube_scraper import start_channel_processing
 from app.core.celery_config import celery_app
-from app.services.pinecone_service import retrieve_relevant_transcripts
+from app.services.pinecone_service import retrieve_relevant_transcripts, retrieve_recent_chunks
 from app.services.channel_service import get_channel_info as get_channel_info_service, get_channel_metadata, store_channel_metadata
 from app.api.deps import get_api_key
 from typing import Optional
@@ -139,4 +139,25 @@ async def get_relevant_chunks(
         ])
     except Exception as e:
         logger.error(f"Error retrieving relevant chunks: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/recent_chunks", response_model=RecentChunksResponse)
+async def get_recent_chunks(
+    channel_id: str = Query(..., description="Channel ID to search in"),
+    chunk_limit: int = Query(5, description="Number of recent chunks to retrieve"),
+    api_key: str = Depends(get_api_key)
+):
+    try:
+        recent_chunks = retrieve_recent_chunks(channel_id, chunk_limit)
+        return RecentChunksResponse(chunks=[
+            RecentChunk(
+                video_id=chunk['video_id'],
+                channel_id=chunk['channel_id'],
+                chunk_index=chunk['chunk_index'],
+                text=chunk['text']
+            ) for chunk in recent_chunks
+        ])
+    except Exception as e:
+        logger.error(f"Error retrieving recent chunks: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -185,6 +185,34 @@ def retrieve_relevant_transcripts(query: str, channel_ids: List[str], limit: int
         return []
 
 
+def retrieve_recent_chunks(channel_id: str, limit: int = 5) -> List[Dict]:
+    try:
+        results = index.query(
+            vector=[0] * 1536,  # Dummy vector
+            filter={"channel_id": {"$eq": channel_id}},
+            top_k=limit,
+            include_metadata=True
+        )
+
+        recent_chunks = []
+        for match in results['matches']:
+            video_id = match['metadata']['video_id']
+            chunk_index = match['metadata']['chunk_index']
+            text = match['metadata'].get('text', match['metadata'].get('transcript_chunk', ''))
+            recent_chunks.append({
+                "video_id": video_id,
+                "channel_id": channel_id,
+                "chunk_index": chunk_index,
+                "text": text
+            })
+
+        logger.info(f"Retrieved {len(recent_chunks)} recent chunks for channel {channel_id}")
+        return recent_chunks
+    except Exception as e:
+        logger.error(f"Error retrieving recent chunks: {str(e)}")
+        return []
+
+
 def inspect_index_contents(limit: int = 10):
     try:
         # Fetch a sample of vectors from the index

@@ -31,3 +31,14 @@ class RelevantChunk(BaseModel):
 
 class RelevantChunksResponse(BaseModel):
     chunks: List[RelevantChunk]
+
+
+class RecentChunk(BaseModel):
+    video_id: str
+    channel_id: str
+    chunk_index: int
+    text: str
+
+
+class RecentChunksResponse(BaseModel):
+    chunks: List[RecentChunk]

@@ -335,6 +335,14 @@ curl -X GET "http://localhost:8000/relevant_chunks?query=AI%20ethics&channel_id=
    curl -X GET "http://localhost:8000/relevant_chunks?query=AI%20ethics&channel_id=UCZf5IX90oe5gdPppMXGImwg"
    ```
 
+5. **Retrieve Recent Chunks:**
+   
+   Once processing is complete, fetch recent transcript chunks.
+
+   ```bash
+   curl -X GET "http://localhost:8000/recent_chunks?channel_id=UCZf5IX90oe5gdPppMXGImwg&chunk_limit=5"
+   ```
+
 ---
 
 **Additional Notes:**
