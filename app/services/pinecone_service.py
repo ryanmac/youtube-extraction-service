@@ -2,8 +2,8 @@
 import logging
 from pinecone import Pinecone
 from app.core.config import settings
+from app.utils.embedding_utils import generate_embedding
 from typing import List, Dict
-import openai
 from tenacity import retry, stop_after_attempt, wait_exponential
 import json
 
@@ -26,13 +26,9 @@ def estimate_vector_size(vector_tuple):
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-def store_embeddings(channel_id: str, video_id: str, transcript: str):
+def store_embeddings(channel_id: str, video_id: str, chunks: List[str], embeddings: List[List[float]]):
     try:
-        chunks = split_into_chunks(transcript)
-        logger.info(f"Split transcript into {len(chunks)} chunks for video {video_id}")
-
-        embeddings = [generate_embedding(chunk) for chunk in chunks]
-        logger.info(f"Generated {len(embeddings)} embeddings for channel_id: {channel_id}, video_id: {video_id}")
+        logger.info(f"Storing {len(chunks)} chunks and embeddings for video {video_id}")
 
         vectors = [
             (f"{video_id}_{i}", embedding, {
@@ -91,23 +87,6 @@ def log_embedding(embedding: List[float], prefix: str = ""):
     #     logger.info(f"{prefix}Embedding: {embedding}")
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-def generate_embedding(text: str, model: str = "text-embedding-ada-002") -> List[float]:
-    try:
-        response = openai.embeddings.create(
-            input=text,
-            model=model
-        )
-        embedding = response.data[0].embedding
-        log_embedding(embedding, "Generated ")
-        return embedding
-    except Exception as e:
-        logger.error(f"Error generating embedding: {str(e)}")
-        if "api_key" in str(e).lower():
-            logger.error("OpenAI API key may be invalid or not set")
-        raise
-
-
 def split_into_chunks(text: str, token_limit: int = 200) -> List[str]:
     words = text.split()
     chunks = []
@@ -152,8 +131,13 @@ def is_index_empty():
 
 def retrieve_relevant_transcripts(query: str, channel_ids: List[str], limit: int = 5, context_window: int = 1) -> List[Dict]:
     try:
+        logger.info(f"Generating embedding for query: {query}")
         query_embedding = generate_embedding(query)
         logger.info(f"Generated query embedding with length: {len(query_embedding)}")
+
+        if not query_embedding:
+            logger.error("Failed to generate query embedding")
+            return []
 
         if channel_ids:
             existing_channels = [channel_id for channel_id in channel_ids if channel_exists_in_index(channel_id)]

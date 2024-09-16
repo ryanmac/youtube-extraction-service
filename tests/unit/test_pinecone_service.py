@@ -1,6 +1,6 @@
 # tests/unit/test_pinecone_service.py
 import pytest
-from app.services.pinecone_service import generate_embedding
+from app.utils.embedding_utils import generate_embedding
 from unittest.mock import MagicMock
 
 
@@ -14,7 +14,7 @@ def mock_pinecone(mocker):
 
 @pytest.fixture
 def mock_openai(mocker):
-    return mocker.patch('app.services.pinecone_service.openai.embeddings.create')
+    return mocker.patch('app.utils.embedding_utils.client.embeddings.create')
 
 
 # def test_store_embeddings(mock_pinecone, mock_openai):
@@ -68,7 +68,7 @@ def test_generate_embedding(mock_openai):
     embedding = generate_embedding(text)
 
     assert len(embedding) == 1536
-    mock_openai.assert_called_once_with(input=text, model="text-embedding-ada-002")
+    mock_openai.assert_called_once_with(input=text, model="text-embedding-3-small")
 
 
 # @pytest.mark.parametrize("channel_id,expected", [

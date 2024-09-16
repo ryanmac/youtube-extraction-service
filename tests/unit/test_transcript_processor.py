@@ -12,21 +12,29 @@ def test_split_into_chunks():
     assert all(len(chunk.split()) <= 10 for chunk in chunks)
 
 
-# def test_generate_embeddings(mock_openai):
-#     mock_openai.embeddings.create.return_value.data = [{"embedding": [0.1] * 1536}]
-#     chunks = ["This is chunk 1", "This is chunk 2"]
-#     embeddings = generate_embeddings(chunks)
-#     assert len(embeddings) == 2
-#     assert all(len(embedding) == 1536 for embedding in embeddings)
-#     assert mock_openai.embeddings.create.call_count == 2
+@patch('app.services.transcript_processor.store_embeddings')
+@patch('app.services.transcript_processor.generate_embeddings')
+def test_process_transcript(mock_generate_embeddings, mock_store_embeddings):
+    mock_generate_embeddings.return_value = [[0.1] * 1536]  # Mocking the generated embeddings
+
+    with patch('celery.app.task.Task.update_state') as mock_update_state:
+        result = process_transcript("test_channel", "test_video", "This is a test transcript.")
+
+    mock_generate_embeddings.assert_called_once()
+    mock_store_embeddings.assert_called_once()
+    mock_update_state.assert_called_with(state='SUCCESS', meta={'video_id': 'test_video'})
+    assert result == {'status': 'success', 'video_id': 'test_video'}
 
 
 @patch('app.services.transcript_processor.store_embeddings')
-def test_process_transcript(mock_store_embeddings, mock_openai):
-    mock_openai.embeddings.create.return_value.data = [{"embedding": [0.1] * 1536}]
+@patch('app.services.transcript_processor.generate_embeddings')
+def test_process_transcript_with_error(mock_generate_embeddings, mock_store_embeddings):
+    mock_generate_embeddings.side_effect = Exception("Embedding generation failed")
 
     with patch('celery.app.task.Task.update_state') as mock_update_state:
-        process_transcript("test_channel", "test_video", "This is a test transcript.")
+        result = process_transcript("test_channel", "test_video", "This is a test transcript.")
 
-    mock_store_embeddings.assert_called_once()
-    mock_update_state.assert_called_with(state='SUCCESS', meta={'video_id': 'test_video'})
+    mock_generate_embeddings.assert_called_once()
+    mock_store_embeddings.assert_not_called()
+    mock_update_state.assert_called_with(state='FAILURE', meta={'video_id': 'test_video', 'error': 'Embedding generation failed'})
+    assert result == {'status': 'failure', 'video_id': 'test_video', 'error': 'Embedding generation failed'}

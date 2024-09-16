@@ -1,14 +1,7 @@
-import pytest
+# tests/integration/test_celery_tasks.py
 from unittest.mock import patch, MagicMock
 from app.services.youtube_scraper import start_channel_processing, process_video
 from app.services.transcript_processor import process_transcript
-
-
-@pytest.fixture
-def mock_celery_task():
-    with patch('celery.app.task.Task.apply_async') as mock:
-        mock.return_value.get = MagicMock()
-        yield mock
 
 
 def test_start_channel_processing_task(mock_youtube_scraper, mock_pinecone, mock_celery_task):
@@ -26,22 +19,17 @@ def test_process_video_task(mock_youtube_scraper, mock_celery_task, redis_client
     assert redis_client.get("processed:test_video_id") == b"1"
 
 
-def test_process_transcript_task(mock_pinecone, mock_openai, mock_celery_task):
+def test_process_transcript_task(mock_pinecone, mock_openai_client, mock_celery_task):
     # Set up the mock for Pinecone index
     mock_index = MagicMock()
     mock_pinecone.return_value.Index.return_value = mock_index
 
-    # Set up the mock for OpenAI embeddings
-    mock_openai.embeddings.create.return_value.data = [{"embedding": [0.1] * 1536}]
-
     # Mock the store_embeddings function and other necessary functions
     with patch('app.services.transcript_processor.store_embeddings') as mock_store_embeddings, \
          patch('app.services.transcript_processor.split_into_chunks') as mock_split_into_chunks, \
-         patch('app.services.transcript_processor.generate_embeddings') as mock_generate_embeddings, \
          patch('celery.app.task.Task.update_state') as mock_update_state:
 
         mock_split_into_chunks.return_value = ["chunk1", "chunk2"]
-        mock_generate_embeddings.return_value = [[0.1] * 1536, [0.2] * 1536]
 
         # Execute the task synchronously
         result = process_transcript.apply(args=["test_channel", "test_video", "This is a test transcript."])
@@ -51,15 +39,19 @@ def test_process_transcript_task(mock_pinecone, mock_openai, mock_celery_task):
 
         # Check if the mocked functions were called
         mock_split_into_chunks.assert_called_once_with("This is a test transcript.")
-        mock_generate_embeddings.assert_called_once_with(["chunk1", "chunk2"])
-        mock_store_embeddings.assert_called_once_with(
-            "test_channel", "test_video", ["chunk1", "chunk2"], [[0.1] * 1536, [0.2] * 1536]
-        )
+        assert mock_openai_client.embeddings.create.call_count == 2  # Called once for each chunk
+
+        mock_store_embeddings.assert_called_once()
+        store_embeddings_args = mock_store_embeddings.call_args[0]
+        assert store_embeddings_args[0] == "test_channel"
+        assert store_embeddings_args[1] == "test_video"
+        assert store_embeddings_args[2] == ["chunk1", "chunk2"]
+        assert len(store_embeddings_args[3]) == 2  # Two embeddings
 
         # Check if update_state was called (this replaces the need to set backend)
         mock_update_state.assert_called_with(state='SUCCESS', meta={'video_id': 'test_video'})
 
     # Optional: Print out more information if the assertion fails
-    if not mock_store_embeddings.called:
-        print("store_embeddings was not called.")
-        print("Mock calls:", mock_store_embeddings.mock_calls)
+    if not result.successful():
+        print("Task failed.")
+        print("Task result:", result.result)

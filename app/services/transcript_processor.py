@@ -2,11 +2,11 @@
 import logging
 from celery import shared_task, Task
 from app.services.pinecone_service import store_embeddings
+from app.utils.embedding_utils import generate_embeddings
 from app.core.config import settings
-from typing import List
+from typing import List, Union
 import tiktoken
 import openai
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 
@@ -14,16 +14,20 @@ openai.api_key = settings.OPENAI_API_KEY
 
 
 @shared_task(bind=True)
-def process_transcript(self, channel_id: str, video_id: str, transcript: str):
+def process_transcript(self_or_task: Union[Task, str], channel_id: str, video_id: str, transcript: str):
     try:
         chunks = split_into_chunks(transcript)
-        embeddings = generate_embeddings(chunks)
+        task = self_or_task if isinstance(self_or_task, Task) else None
+        embeddings = generate_embeddings(chunks, task=task)
         store_embeddings(channel_id, video_id, chunks, embeddings)
-        self.update_state(state='SUCCESS', meta={'video_id': video_id})
+        if isinstance(self_or_task, Task):
+            self_or_task.update_state(state='SUCCESS', meta={'video_id': video_id})
+        return {'status': 'success', 'video_id': video_id}
     except Exception as e:
         logger.error(f"Error processing transcript for video {video_id}: {str(e)}")
-        self.update_state(state='FAILURE', meta={'video_id': video_id, 'error': str(e)})
-        raise
+        if isinstance(self_or_task, Task):
+            self_or_task.update_state(state='FAILURE', meta={'video_id': video_id, 'error': str(e)})
+        return {'status': 'failure', 'video_id': video_id, 'error': str(e)}
 
 
 def split_into_chunks(text: str, max_tokens: int = settings.CHUNK_SIZE) -> List[str]:
@@ -45,26 +49,3 @@ def split_into_chunks(text: str, max_tokens: int = settings.CHUNK_SIZE) -> List[
         chunks.append(encoding.decode(current_chunk))
 
     return chunks
-
-
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-def generate_embeddings(chunks: List[str], task: Task = None) -> List[List[float]]:
-    try:
-        embeddings = []
-        total_chunks = len(chunks)
-        for i, chunk in enumerate(chunks, 1):
-            response = openai.Embedding.create(
-                input=chunk,
-                model="text-embedding-ada-002"
-            )
-            embeddings.append(response['data'][0]['embedding'])
-
-            if task:
-                progress = (i / total_chunks) * 100
-                task.update_state(state='PROGRESS', meta={'progress': progress})
-                logger.info(f"Embedding progress: {progress:.2f}% ({i}/{total_chunks})")
-
-        return embeddings
-    except Exception as e:
-        logger.error(f"Error generating embeddings: {str(e)}")
-        raise
