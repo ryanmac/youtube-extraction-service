@@ -28,6 +28,18 @@ def estimate_vector_size(vector_tuple):
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def store_embeddings(channel_id: str, video_id: str, chunks: List[str], embeddings: List[List[float]]):
     try:
+        logger.info(f"Storing embeddings for video {video_id}: {len(chunks)} chunks, {len(embeddings)} embeddings")
+
+        if len(chunks) != len(embeddings):
+            raise ValueError(f"Mismatch in number of chunks ({len(chunks)}) and embeddings ({len(embeddings)})")
+
+        @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+        def safe_upsert(vectors):
+            try:
+                index.upsert(vectors=vectors)
+            except Exception as e:
+                raise Exception(f"Failed to upsert vectors: {str(e)}")  # Raise a simpler, pickleable exception
+
         logger.info(f"Storing {len(chunks)} chunks and embeddings for video {video_id}")
 
         vectors = [
@@ -40,7 +52,7 @@ def store_embeddings(channel_id: str, video_id: str, chunks: List[str], embeddin
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
         ]
 
-        # Reduce max_size to 1MB to ensure we're well under the 2MB limit
+        # Split into batches
         max_size = 1 * 1024 * 1024  # 1MB in bytes
         current_batch = []
         current_size = 0
@@ -50,7 +62,7 @@ def store_embeddings(channel_id: str, video_id: str, chunks: List[str], embeddin
 
             if current_size + vector_size > max_size:
                 logger.info(f"Upserting batch of size {len(current_batch)} (estimated {current_size/1024:.2f}KB) for video {video_id}")
-                index.upsert(vectors=current_batch)
+                safe_upsert(current_batch)  # Call the safe retryable function
                 current_batch = []
                 current_size = 0
 
@@ -59,13 +71,15 @@ def store_embeddings(channel_id: str, video_id: str, chunks: List[str], embeddin
 
         if current_batch:
             logger.info(f"Upserting final batch of size {len(current_batch)} (estimated {current_size/1024:.2f}KB) for video {video_id}")
-            index.upsert(vectors=current_batch)
+            safe_upsert(current_batch)
 
         logger.info(f"Successfully stored embeddings for video {video_id}")
 
     except Exception as e:
         logger.error(f"Error storing embeddings for video {video_id}: {str(e)}")
-        raise
+        logger.error(f"channel_id type: {type(channel_id)}, video_id type: {type(video_id)}, "
+                     f"chunks type: {type(chunks)}, embeddings type: {type(embeddings)}")
+        raise Exception(f"Error storing embeddings: {str(e)}")
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))

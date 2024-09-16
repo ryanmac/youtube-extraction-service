@@ -1,7 +1,8 @@
 # app/services/youtube_scraper.py
 import logging
 from app.services.youtube_channel_scraper import YoutubeScraper
-from app.services.transcript_processor import process_transcript
+from app.services.transcript_processor import process_transcript, split_into_chunks
+from app.utils.embedding_utils import generate_embeddings
 from app.core.config import settings
 import redis
 from app.services.pinecone_service import transcript_exists, store_embeddings, get_index_stats
@@ -36,7 +37,10 @@ def start_channel_processing(self, channel_id: str, video_limit: int = 5):
                 transcript = fy.get_video_transcript(video_id=video_id)
                 if transcript:
                     logger.info(f"Transcript found for video {video_id}")
-                    store_embeddings(channel_id, video_id, transcript)
+                    chunks = split_into_chunks(transcript)
+                    embeddings = generate_embeddings(chunks)
+                    logger.info(f"Generated {len(embeddings)} embeddings for {len(chunks)} chunks")
+                    store_embeddings(channel_id, video_id, chunks, embeddings)
                     redis_client.set(f"processed:{video_id}", "1")
                     logger.info(f"Embeddings stored for video {video_id}")
                 else:
@@ -57,7 +61,8 @@ def start_channel_processing(self, channel_id: str, video_limit: int = 5):
         return {'status': 'All videos processed', 'progress': 100, 'channel_id': channel_id}
 
     except Exception as e:
-        logger.error(f"Error processing channel {channel_id}: {str(e)}")
+        logger.error(f"Error processing channel {channel_id}: {str(e)}", exc_info=True)
+        logger.error(f"Channel ID type: {type(channel_id)}, Video limit type: {type(video_limit)}")
         raise
 
 
