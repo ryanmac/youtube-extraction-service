@@ -5,7 +5,7 @@ from app.core.config import settings
 from typing import List, Dict
 import openai
 from tenacity import retry, stop_after_attempt, wait_exponential
-import sys
+import json
 
 pc = Pinecone(
     api_key=settings.PINECONE_API_KEY,
@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 logging.getLogger("pinecone").setLevel(logging.WARNING)
 
 
-def get_size(obj):
-    """Utility function to calculate the size of an object in memory."""
-    return sys.getsizeof(obj)
+def estimate_vector_size(vector_tuple):
+    # Estimate the size of the vector tuple when serialized to JSON
+    return len(json.dumps(vector_tuple).encode('utf-8'))
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
@@ -34,7 +34,6 @@ def store_embeddings(channel_id: str, video_id: str, transcript: str):
         embeddings = [generate_embedding(chunk) for chunk in chunks]
         logger.info(f"Generated {len(embeddings)} embeddings for channel_id: {channel_id}, video_id: {video_id}")
 
-        # Create the vector tuples
         vectors = [
             (f"{video_id}_{i}", embedding, {
                 "channel_id": channel_id,
@@ -45,17 +44,16 @@ def store_embeddings(channel_id: str, video_id: str, transcript: str):
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
         ]
 
-        # Split the vectors into smaller batches
-        max_size = 0.5 * 1024 * 1024  # 500k in bytes
+        # Reduce max_size to 1MB to ensure we're well under the 2MB limit
+        max_size = 1 * 1024 * 1024  # 1MB in bytes
         current_batch = []
         current_size = 0
 
         for vector in vectors:
-            vector_size = get_size(vector)
+            vector_size = estimate_vector_size(vector)
 
             if current_size + vector_size > max_size:
-                # If the current batch exceeds the max size, upsert it
-                logger.info(f"Upserting batch of size {len(current_batch)} for video {video_id}")
+                logger.info(f"Upserting batch of size {len(current_batch)} (estimated {current_size/1024:.2f}KB) for video {video_id}")
                 index.upsert(vectors=current_batch)
                 current_batch = []
                 current_size = 0
@@ -63,9 +61,8 @@ def store_embeddings(channel_id: str, video_id: str, transcript: str):
             current_batch.append(vector)
             current_size += vector_size
 
-        # Upsert the remaining batch
         if current_batch:
-            logger.info(f"Upserting final batch of size {len(current_batch)} for video {video_id}")
+            logger.info(f"Upserting final batch of size {len(current_batch)} (estimated {current_size/1024:.2f}KB) for video {video_id}")
             index.upsert(vectors=current_batch)
 
         logger.info(f"Successfully stored embeddings for video {video_id}")

@@ -1,6 +1,6 @@
 # app/services/transcript_processor.py
 import logging
-from celery import shared_task
+from celery import shared_task, Task
 from app.services.pinecone_service import store_embeddings
 from app.core.config import settings
 from typing import List
@@ -48,15 +48,22 @@ def split_into_chunks(text: str, max_tokens: int = settings.CHUNK_SIZE) -> List[
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
-def generate_embeddings(chunks: List[str]) -> List[List[float]]:
+def generate_embeddings(chunks: List[str], task: Task = None) -> List[List[float]]:
     try:
         embeddings = []
-        for chunk in chunks:
+        total_chunks = len(chunks)
+        for i, chunk in enumerate(chunks, 1):
             response = openai.Embedding.create(
                 input=chunk,
                 model="text-embedding-ada-002"
             )
             embeddings.append(response['data'][0]['embedding'])
+
+            if task:
+                progress = (i / total_chunks) * 100
+                task.update_state(state='PROGRESS', meta={'progress': progress})
+                logger.info(f"Embedding progress: {progress:.2f}% ({i}/{total_chunks})")
+
         return embeddings
     except Exception as e:
         logger.error(f"Error generating embeddings: {str(e)}")
