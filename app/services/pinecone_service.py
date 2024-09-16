@@ -46,7 +46,7 @@ def store_embeddings(channel_id: str, video_id: str, transcript: str):
         ]
 
         # Split the vectors into smaller batches
-        max_size = 1 * 1024 * 1024  # 2 MB in bytes
+        max_size = 0.5 * 1024 * 1024  # 500k in bytes
         current_batch = []
         current_size = 0
 
