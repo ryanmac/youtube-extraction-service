@@ -40,9 +40,10 @@ def cached_api_call(cache_key, url, expiration_days=7):
 
 def get_channel_id(channel_name):
     query = '%20'.join(channel_name.split())
-    search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type=channel&key={settings.YOUTUBE_API_KEY}'
+    # search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type=channel&key={settings.YOUTUBE_API_KEY}'
+    search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&key={settings.YOUTUBE_API_KEY}'
     logger.info(f"Fetching channel ID for {channel_name} at URL: {search_url}")
-    cache_key = f"channel_id:{channel_name}"
+    cache_key = f"channel_id::{channel_name}"
     data = cached_api_call(cache_key, search_url)
     if not data:
         return None

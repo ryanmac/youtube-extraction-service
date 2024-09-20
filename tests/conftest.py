@@ -85,7 +85,7 @@ def mock_pinecone_query(mocker):
     mock.side_effect = [
         # First call (channel existence check)
         {
-            "matches": [{"id": "dummy_id"}]
+            "matches": [{"id": "dummy_id", "metadata": {"channel_id": "test_channel"}}]
         },
         # Second call (actual query for relevant chunks)
         {

@@ -14,7 +14,7 @@ client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 def generate_embedding(text: str, model: str = "text-embedding-3-small") -> List[float]:
-    logger.info(f"Generating embedding for text: {text[:50]}...")
+    # logger.info(f"Generating embedding for text: {text[:50]}...")
     try:
         response = client.embeddings.create(
             input=text,
@@ -48,7 +48,7 @@ def generate_embeddings(chunks: List[str], task: Optional[Task] = None, model: s
                 task.update_state(state='PROGRESS', meta={'progress': progress})
                 logger.info(f"Embedding progress: {progress:.2f}% ({i}/{total_chunks})")
 
-            time.sleep(0.5)  # Rate limiting
+            time.sleep(0.1)  # Rate limiting
 
         return embeddings
     except Exception as e:
