@@ -40,7 +40,6 @@ def cached_api_call(cache_key, url, expiration_days=7):
 
 def get_channel_id(channel_name):
     query = '%20'.join(channel_name.split())
-    # search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&type=channel&key={settings.YOUTUBE_API_KEY}'
     search_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&key={settings.YOUTUBE_API_KEY}'
     logger.info(f"Fetching channel ID for {channel_name} at URL: {search_url}")
     cache_key = f"channel_id::{channel_name}"
@@ -55,10 +54,21 @@ def get_channel_id(channel_name):
     logger.info(f"Found channel info for {channel_name}")
     logger.info(json.dumps(channel_info, indent=2))
 
-    # extract the channel ID
-    channel_id = channel_info[0]["id"] if isinstance(channel_info[0]["id"], str) else channel_info[0]["id"].get("channelId")
-    logger.info(f"Channel ID: {channel_id}")
-    return channel_id
+    # Try to find a channel result first
+    for item in channel_info:
+        if item["id"].get("kind") == "youtube#channel":
+            channel_id = item["id"]["channelId"]
+            logger.info(f"Found channel ID: {channel_id}")
+            return channel_id
+
+    # If no channel found, use the first result's channelId
+    if channel_info:
+        channel_id = channel_info[0]["snippet"]["channelId"]
+        logger.info(f"Using channelId from first result: {channel_id}")
+        return channel_id
+
+    logger.warning(f"No channel ID found for {channel_name}")
+    return None
 
 
 def build_url(channel_id, parts):
@@ -107,7 +117,7 @@ def get_stored_channel_metadata(channel_id):
 def get_channel_id_from_name_or_url(channel_name: Optional[str] = None, channel_url: Optional[str] = None):
     if not channel_name and not channel_url:
         logger.error("No channel name or URL provided")
-        return None
+        return None, None, None
 
     if channel_name:
         channel_id = get_channel_id(channel_name)
@@ -115,11 +125,7 @@ def get_channel_id_from_name_or_url(channel_name: Optional[str] = None, channel_
         channel_name = extract_channel_name(channel_url)
         channel_id = get_channel_id(channel_name)
 
-    return {
-        channel_id: channel_id,
-        channel_name: channel_name,
-        channel_url: channel_url
-    }
+    return channel_id, channel_name, channel_url
 
 
 def get_channel_info(channel_id: Optional[str] = None, channel_name: Optional[str] = None, channel_url: Optional[str] = None):
