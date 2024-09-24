@@ -2,15 +2,29 @@
 from celery import Celery
 from app.core.config import settings
 import logging
+import ssl
 
 logger = logging.getLogger(__name__)
 
 
 def create_celery_app():
+    broker_url = settings.get_redis_url
+    result_backend = settings.get_redis_url
+
+    # Add SSL configuration for Redis
+    broker_use_ssl = {
+        'ssl_cert_reqs': ssl.CERT_NONE
+    }
+    redis_backend_use_ssl = {
+        'ssl_cert_reqs': ssl.CERT_NONE
+    }
+
     celery_app = Celery(
         "worker",
-        broker=settings.get_redis_url,
-        backend=settings.get_redis_url,
+        broker=broker_url,
+        backend=result_backend,
+        broker_use_ssl=broker_use_ssl,
+        redis_backend_use_ssl=redis_backend_use_ssl,
         include=["app.services.youtube_scraper", "app.services.transcript_processor", "app.main"]
     )
 
