@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 def create_celery_app():
     celery_app = Celery(
         "worker",
-        broker=settings.REDIS_URL,
-        backend=settings.REDIS_URL,
+        broker=settings.get_redis_url,
+        backend=settings.get_redis_url,
         include=["app.services.youtube_scraper", "app.services.transcript_processor", "app.main"]
     )
 

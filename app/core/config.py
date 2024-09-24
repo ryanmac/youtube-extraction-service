@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_PASSWORD: Optional[str] = None
+    REDIS_URL: Optional[str] = None
     PINECONE_API_KEY: str
     PINECONE_ENVIRONMENT: str
     PINECONE_INDEX_NAME: str
@@ -22,7 +23,9 @@ class Settings(BaseSettings):
     YES_API_KEY: str
 
     @property
-    def REDIS_URL(self) -> str:
+    def get_redis_url(self) -> str:
+        if self.REDIS_URL:
+            return self.REDIS_URL
         if self.REDIS_PASSWORD:
             return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"

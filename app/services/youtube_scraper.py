@@ -8,7 +8,7 @@ import redis
 from app.services.pinecone_service import transcript_exists, store_embeddings, get_index_stats
 from app.core.celery_config import celery_app
 
-redis_client = redis.Redis.from_url(settings.REDIS_URL)
+redis_client = redis.Redis.from_url(settings.get_redis_url)
 logger = logging.getLogger(__name__)
 
 

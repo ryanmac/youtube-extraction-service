@@ -14,7 +14,7 @@ def test_client():
 
 @pytest.fixture(scope="session")
 def redis_client():
-    return redis.Redis.from_url(settings.REDIS_URL)
+    return redis.Redis.from_url(settings.get_redis_url)
 
 
 @pytest.fixture(scope="function")

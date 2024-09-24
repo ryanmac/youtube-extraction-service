@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     logger.info("Application is starting up")
     logger.info(f"Celery broker URL: {celery_app.conf.broker_url}")
     logger.info(f"Celery result backend: {celery_app.conf.result_backend}")
-    logger.info(f"Redis URL: {settings.REDIS_URL}")
+    logger.info(f"Redis URL: {settings.get_redis_url}")
 
     yield  # Control is returned to FastAPI for handling requests
 
